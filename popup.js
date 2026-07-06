@@ -59,6 +59,37 @@ apiKeyInput.addEventListener("change", saveSettings);
 apiEndpointInput.addEventListener("change", saveSettings);
 apiModelInput.addEventListener("change", saveSettings);
 
+const AI_ENDPOINT = "http://localhost:11434/v1/chat/completions";
+const AI_MODEL = "qwen2.5:1.5b";
+
+async function callOllama(prompt) {
+  const res = await fetch(AI_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "You are a homework assistant. Given a list of form fields with their labels, types, and options, return a JSON object mapping each field's selector to the best answer. Only respond with valid JSON, no extra text.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.3,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || "";
+  const json = text.replace(/```(?:json)?/g, "").trim();
+  return JSON.parse(json);
+}
+
 fillBtn.addEventListener("click", async () => {
   fillBtn.disabled = true;
   fillBtn.textContent = useAi ? "Asking AI..." : "Filling...";
@@ -87,27 +118,25 @@ fillBtn.addEventListener("click", async () => {
         return;
       }
 
-      setStatus(`Sending ${fields.length} fields to AI...`, "loading");
+      setStatus(`Calling Ollama (${fields.length} fields)...`, "loading");
 
       const prompt = `Given these form fields, return a JSON object where keys are the field selectors and values are the best answers to fill in:\n\n${JSON.stringify(fields, null, 2)}\n\nRules:\n- For text inputs: provide a realistic answer\n- For selects: pick the best option value\n- For checkboxes/radios: answer true or false\n- For textareas: provide a complete sentence answer\n- For email: provide a valid email\n- For tel: provide a valid phone number\n- For number: provide a numeric value\n- For date: provide a date in YYYY-MM-DD format\n- Only respond with valid JSON.`;
 
-      const response = await chrome.runtime.sendMessage({ action: "callLLM", prompt });
-
-      if (!response.ok) {
-        const msg = response.error || "Unknown error";
-        if (msg.includes("API key")) {
-          setStatus("No API key set. Use Canned mode or configure an API key in Settings.", "error");
-        } else if (msg.includes("fetch")) {
-          setStatus("Can't reach the AI. Is Ollama running? (Settings → check endpoint)", "error");
+      let answers;
+      try {
+        answers = await callOllama(prompt);
+      } catch (err) {
+        const msg = err.message;
+        if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+          setStatus("Can't reach Ollama. Make sure it's running on localhost:11434", "error");
         } else {
-          setStatus(`AI error: ${msg}`, "error");
+          setStatus(`Ollama error: ${msg}`, "error");
         }
         fillBtn.disabled = false;
         fillBtn.textContent = "Auto-Fill This Page";
         return;
       }
 
-      const answers = response.data;
       setStatus("Filling answers...", "loading");
 
       const fillResult = await chrome.tabs.sendMessage(tab.id, {
