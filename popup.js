@@ -59,7 +59,7 @@ apiKeyInput.addEventListener("change", saveSettings);
 apiEndpointInput.addEventListener("change", saveSettings);
 apiModelInput.addEventListener("change", saveSettings);
 
-const AI_ENDPOINT = "http://localhost:11434/v1/chat/completions";
+const AI_ENDPOINT = "http://127.0.0.1:11434/v1/chat/completions";
 const AI_MODEL = "qwen2.5:1.5b";
 
 async function callOllama(prompt) {
