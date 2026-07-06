@@ -1,0 +1,7 @@
+{
+  "name": "com.homework.ollama",
+  "description": "Bridge between Homework Helper extension and local Ollama API",
+  "path": "native-bridge.bat",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://RNYfMQ5iYf4fx9Xqv1XBmw/"]
+}
