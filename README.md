@@ -31,16 +31,28 @@ A Chrome extension that auto-completes worksheet-style forms and assignments on 
 4. **Smart mode** — Toggle to "Smart (AI)", configure your API key in settings, then click "Auto-Fill This Page"
 5. Click **Revert Fill** to undo
 
-### AI Setup
+## Smart Mode (AI) Setup
+
+### Option 1: Ollama (local, free, no API key)
+
+1. Download & install [Ollama](https://ollama.com)
+2. Run `ollama pull qwen2.5:1.5b` (or any model you want)
+3. Keep Ollama running in the background
+4. The extension defaults already point to `http://localhost:11434/v1/chat/completions`
+5. Leave **API Key** blank in Settings — **Smart (AI)** mode will just work
+
+### Option 2: Cloud providers (requires API key)
 
 Supports any OpenAI-compatible API:
 
-| Provider | Endpoint | Model |
-|---|---|---|
-| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` (default) |
-| Anthropic (via proxy) | `https://api.anthropic.com/v1/...` | `claude-3-haiku` |
-| Ollama (local) | `http://localhost:11434/v1/chat/completions` | `llama3` |
-| LM Studio (local) | `http://localhost:1234/v1/chat/completions` | any loaded model |
+| Provider | Endpoint | Model | Free tier? |
+|---|---|---|---|
+| Groq | `https://api.groq.com/openai/v1/chat/completions` | `mixtral-8x7b-32768` | Yes (rate-limited) |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.0-flash` | Yes |
+| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` | No |
+| Anthropic | `https://api.anthropic.com/v1/...` | `claude-3-haiku` | No |
+
+> **🔒 Your API key is safe.** It's stored in `chrome.storage.local` (your browser only), never committed to the repo, and never sent anywhere except directly to the API provider you configure.
 
 1. Click **Settings** in the popup
 2. Enter your API key, endpoint, and model
