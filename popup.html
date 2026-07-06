@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homework Helper</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    .header {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      padding: 16px 20px;
+      color: white;
+    }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    .content { padding: 16px 20px; }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #475569;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover { background: #cbd5e1; }
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    .status.success { display: block; background: #dcfce7; color: #166534; }
+    .status.error { display: block; background: #fee2e2; color: #991b1b; }
+    .status.info { display: block; background: #dbeafe; color: #1e40af; }
+    .stats { margin-top: 12px; display: none; }
+    .stats.visible { display: block; }
+    .stat-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
+    .stat-label { color: #64748b; }
+    .stat-value { font-weight: 600; }
+    .footer { padding: 12px 20px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Homework Helper</h1>
+    <p>PoC — Auto-complete worksheets &amp; forms</p>
+  </div>
+  <div class="content">
+    <button class="btn btn-primary" id="fillBtn">Auto-Fill This Page</button>
+    <button class="btn btn-secondary" id="revertBtn" style="display:none">Revert Fill</button>
+    <div class="status" id="status"></div>
+    <div class="stats" id="stats">
+      <div class="stat-row"><span class="stat-label">Text fields filled</span><span class="stat-value" id="statFields">0</span></div>
+      <div class="stat-row"><span class="stat-label">Dropdowns filled</span><span class="stat-value" id="statSelects">0</span></div>
+      <div class="stat-row"><span class="stat-label">Skipped</span><span class="stat-value" id="statSkipped">0</span></div>
+    </div>
+  </div>
+  <div class="footer">
+    <span>⚠ For educational/PoC use only. v1.0.0</span>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
