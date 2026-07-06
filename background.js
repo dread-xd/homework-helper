@@ -1,6 +1,6 @@
 const DEFAULTS = {
-  apiEndpoint: "https://api.openai.com/v1/chat/completions",
-  apiModel: "gpt-4o-mini",
+  apiEndpoint: "http://localhost:11434/v1/chat/completions",
+  apiModel: "qwen2.5:1.5b",
   apiKey: "",
   useAi: false,
 };
