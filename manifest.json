@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "description": "PoC Chrome extension that auto-completes worksheet-style forms using AI (or canned answers).",
   "permissions": ["storage", "activeTab"],
-  "host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "host_permissions": ["https://*/*", "http://localhost:*/*", "http://127.0.0.1:*/*"],
   "background": {
     "service_worker": "background.js"
   },
