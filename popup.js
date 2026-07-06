@@ -1,5 +1,6 @@
 const fillBtn = document.getElementById("fillBtn");
 const revertBtn = document.getElementById("revertBtn");
+const diagnoseBtn = document.getElementById("diagnoseBtn");
 const statusEl = document.getElementById("status");
 const statsEl = document.getElementById("stats");
 const statFields = document.getElementById("statFields");
@@ -21,8 +22,7 @@ function setStatus(msg, type = "info") {
 }
 
 async function getActiveTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  return tabs[0];
+  return (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 }
 
 function showStats(results) {
@@ -59,11 +59,15 @@ apiKeyInput.addEventListener("change", saveSettings);
 apiEndpointInput.addEventListener("change", saveSettings);
 apiModelInput.addEventListener("change", saveSettings);
 
-const AI_ENDPOINT = "http://127.0.0.1:11434/v1/chat/completions";
+const ENDPOINTS = [
+  "http://127.0.0.1:11434/v1/chat/completions",
+  "http://localhost:11434/v1/chat/completions",
+];
+
 const AI_MODEL = "qwen2.5:1.5b";
 
-async function callOllama(prompt) {
-  const res = await fetch(AI_ENDPOINT, {
+async function tryEndpoint(url, prompt) {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -81,14 +85,94 @@ async function callOllama(prompt) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API error ${res.status}: ${text}`);
+    throw new Error(
+      `HTTP ${res.status}\n` +
+      `URL: ${url}\n` +
+      `Status: ${res.status} ${res.statusText}\n` +
+      `Body: ${text || "(empty)"}`
+    );
   }
 
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content || "";
-  const json = text.replace(/```(?:json)?/g, "").trim();
-  return JSON.parse(json);
+  return res.json();
 }
+
+async function callOllama(prompt) {
+  const errors = [];
+
+  for (const url of ENDPOINTS) {
+    try {
+      const data = await tryEndpoint(url, prompt);
+      const text = data.choices?.[0]?.message?.content || "";
+      const json = text.replace(/```(?:json)?/g, "").trim();
+      return JSON.parse(json);
+    } catch (err) {
+      errors.push(err.message);
+    }
+  }
+
+  throw new Error(
+    "Ollama unreachable on both 127.0.0.1 and localhost.\n\n" +
+    "Tried:\n" +
+    errors.map((e, i) => `  ${ENDPOINTS[i]}\n    → ${e.split("\n")[0]}`).join("\n") + "\n\n" +
+    "Make sure Ollama is running (ollama serve) and qwen2.5:1.5b is pulled (ollama pull qwen2.5:1.5b)."
+  );
+}
+
+async function diagnoseConnection() {
+  const results = [];
+
+  for (const url of ENDPOINTS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: AI_MODEL, messages: [{ role: "user", content: "hi" }], stream: false }),
+      });
+      const text = await res.text();
+      if (res.ok) {
+        results.push(`✓ ${url} → ${res.status} OK`);
+      } else {
+        results.push(`✗ ${url} → ${res.status} ${res.statusText}: ${text.substring(0, 100)}`);
+      }
+    } catch (err) {
+      results.push(`✗ ${url} → ${err.message}`);
+    }
+  }
+
+  return results;
+}
+
+async function diagnose() {
+  setStatus("Running diagnostics...", "loading");
+  let lines = [];
+
+  lines.push("=== Ollama Check ===");
+  (await diagnoseConnection()).forEach(l => lines.push(l));
+
+  try {
+    const tab = await getActiveTab();
+    const fields = await chrome.tabs.sendMessage(tab.id, { action: "scrapeFields" });
+    lines.push(`\n=== Page Check ===`);
+    lines.push(`✓ Content script: loaded`);
+    lines.push(`✓ Fillable fields: ${fields.length}`);
+    fields.slice(0, 5).forEach(f => lines.push(`  ${f.selector}: "${f.label}" (${f.type})`));
+    if (fields.length > 5) lines.push(`  ... and ${fields.length - 5} more`);
+  } catch (e) {
+    lines.push(`\n=== Page Check ===`);
+    lines.push(`✗ Content script: NOT FOUND`);
+    lines.push(`  Reload the page (F5) and try again.`);
+  }
+
+  lines.push(`\n=== Extension Info ===`);
+  lines.push(`Version: ${chrome.runtime.getManifest().version}`);
+  lines.push(`Mode: ${useAi ? "Smart (AI)" : "Canned"}`);
+
+  setStatus(lines.join("\n"), "info");
+  fillBtn.disabled = false;
+  fillBtn.textContent = "Auto-Fill This Page";
+}
+
+diagnoseBtn.addEventListener("click", diagnose);
 
 fillBtn.addEventListener("click", async () => {
   fillBtn.disabled = true;
@@ -105,14 +189,19 @@ fillBtn.addEventListener("click", async () => {
       try {
         fields = await chrome.tabs.sendMessage(tab.id, { action: "scrapeFields" });
       } catch {
-        setStatus("Content script not found. Reload the page (F5) and try again.", "error");
+        setStatus(
+          "Content script not found.\n\n" +
+          "Try: Reload the page (F5) and click Auto-Fill again.\n" +
+          "If it still fails, the extension may need reloading in brave://extensions.",
+          "error"
+        );
         fillBtn.disabled = false;
         fillBtn.textContent = "Auto-Fill This Page";
         return;
       }
 
       if (!fields || fields.length === 0) {
-        setStatus("No fillable fields found.", "error");
+        setStatus("No fillable fields (inputs, selects, textareas) found on this page.", "error");
         fillBtn.disabled = false;
         fillBtn.textContent = "Auto-Fill This Page";
         return;
@@ -126,12 +215,7 @@ fillBtn.addEventListener("click", async () => {
       try {
         answers = await callOllama(prompt);
       } catch (err) {
-        const msg = err.message;
-        if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-          setStatus("Can't reach Ollama. Make sure it's running on localhost:11434", "error");
-        } else {
-          setStatus(`Ollama error: ${msg}`, "error");
-        }
+        setStatus(err.message, "error");
         fillBtn.disabled = false;
         fillBtn.textContent = "Auto-Fill This Page";
         return;
@@ -144,7 +228,7 @@ fillBtn.addEventListener("click", async () => {
         answers,
       });
 
-      setStatus(`Done! Filled ${(fillResult.fields || 0) + (fillResult.selects || 0)} fields.`, "success");
+      setStatus(`Done! Filled ${(fillResult.fields || 0) + (fillResult.selects || 0)} fields with AI answers.`, "success");
       showStats(fillResult);
       revertBtn.style.display = "block";
     } else {
@@ -152,7 +236,12 @@ fillBtn.addEventListener("click", async () => {
       try {
         results = await chrome.tabs.sendMessage(tab.id, { action: "autoFill" });
       } catch {
-        setStatus("Content script not found. Reload the page (F5) and try again.", "error");
+        setStatus(
+          "Content script not found.\n\n" +
+          "Try: Reload the page (F5) and click Auto-Fill again.\n" +
+          "If it still fails, the extension may need reloading in brave://extensions.",
+          "error"
+        );
         fillBtn.disabled = false;
         fillBtn.textContent = "Auto-Fill This Page";
         return;
@@ -162,7 +251,7 @@ fillBtn.addEventListener("click", async () => {
       revertBtn.style.display = "block";
     }
   } catch (err) {
-    setStatus("Error: " + err.message, "error");
+    setStatus("Unexpected error: " + (err.message || err), "error");
   }
 
   fillBtn.disabled = false;
@@ -174,13 +263,11 @@ revertBtn.addEventListener("click", async () => {
   try {
     const tab = await getActiveTab();
     await chrome.tabs.sendMessage(tab.id, { action: "revertFill" });
-
     if (chrome.runtime.lastError) {
-      setStatus("Could not revert.", "error");
+      setStatus("Could not revert. Was the page reloaded since the fill?", "error");
       return;
     }
-
-    setStatus("Fill reverted.", "info");
+    setStatus("Fill reverted to original values.", "info");
     statsEl.classList.remove("visible");
     revertBtn.style.display = "none";
   } catch (err) {
