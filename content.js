@@ -253,6 +253,23 @@ function restoreSnapshot(snapshot) {
   }
 }
 
+document.addEventListener("homework:autoFill", () => {
+  const snapshot = saveSnapshot();
+  const results = autoFill();
+  chrome.storage.local.set({ lastSnapshot: snapshot, lastResult: results });
+  document.dispatchEvent(new CustomEvent("homework:filled", { detail: results }));
+});
+
+document.addEventListener("homework:revertFill", () => {
+  chrome.storage.local.get("lastSnapshot", (data) => {
+    if (data.lastSnapshot) {
+      restoreSnapshot(data.lastSnapshot);
+      chrome.storage.local.remove(["lastSnapshot", "lastResult"]);
+      document.dispatchEvent(new CustomEvent("homework:reverted", { detail: { ok: true } }));
+    }
+  });
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "autoFill") {
     const snapshot = saveSnapshot();

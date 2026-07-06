@@ -2,3 +2,6 @@
 *.swo
 .DS_Store
 Thumbs.db
+*-test-profile/
+chrome-test-profile/
+brave-test-profile/

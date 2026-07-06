@@ -162,8 +162,8 @@ revertBtn.addEventListener("click", async () => {
 chrome.storage.local.get(["useAi", "apiKey", "apiEndpoint", "apiModel", "lastResult"], (data) => {
   if (data.useAi !== undefined) setMode(data.useAi);
   if (data.apiKey) apiKeyInput.value = data.apiKey;
-  if (data.apiEndpoint) apiEndpointInput.value = data.apiEndpoint;
-  if (data.apiModel) apiModelInput.value = data.apiModel;
+  apiEndpointInput.value = data.apiEndpoint || "http://localhost:11434/v1/chat/completions";
+  apiModelInput.value = data.apiModel || "qwen2.5:1.5b";
   if (data.lastResult) {
     showStats(data.lastResult);
     revertBtn.style.display = "block";

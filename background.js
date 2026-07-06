@@ -1,35 +1,23 @@
-const DEFAULTS = {
-  apiEndpoint: "http://localhost:11434/v1/chat/completions",
-  apiModel: "qwen2.5:1.5b",
-  apiKey: "",
-  useAi: false,
-};
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(Object.keys(DEFAULTS), (data) => {
-    const toSet = {};
-    for (const [k, v] of Object.entries(DEFAULTS)) {
-      if (data[k] === undefined) toSet[k] = v;
-    }
-    if (Object.keys(toSet).length) chrome.storage.local.set(toSet);
-  });
-});
+const DEFAULT_ENDPOINT = "http://localhost:11434/v1/chat/completions";
+const DEFAULT_MODEL = "qwen2.5:1.5b";
 
 async function callLLM(prompt) {
-  const { apiEndpoint, apiKey, apiModel } = await chrome.storage.local.get([
-    "apiEndpoint", "apiKey", "apiModel",
-  ]);
+  const { apiKey, apiModel } = await chrome.storage.local.get(["apiKey", "apiModel"]);
+  const model = apiModel || DEFAULT_MODEL;
 
-  const isLocal = apiEndpoint.includes("localhost") || apiEndpoint.includes("127.0.0.1");
+  const isLocal = DEFAULT_ENDPOINT.includes("localhost") || DEFAULT_ENDPOINT.includes("127.0.0.1");
   const headers = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
   if (!apiKey && !isLocal) {
     throw new Error("No API key configured. Set it in the extension popup.");
   }
 
-  const res = await fetch(apiEndpoint, { method: "POST", headers,
+  const res = await fetch(DEFAULT_ENDPOINT, {
+    method: "POST",
+    headers,
     body: JSON.stringify({
-      model: apiModel,
+      model,
       messages: [
         {
           role: "system",
