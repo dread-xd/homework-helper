@@ -59,87 +59,15 @@ apiKeyInput.addEventListener("change", saveSettings);
 apiEndpointInput.addEventListener("change", saveSettings);
 apiModelInput.addEventListener("change", saveSettings);
 
-const ENDPOINTS = [
-  "http://127.0.0.1:11434/v1/chat/completions",
-  "http://localhost:11434/v1/chat/completions",
-];
-
-const AI_MODEL = "qwen2.5:1.5b";
-
-async function tryEndpoint(url, prompt) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "You are a homework assistant. Given a list of form fields with their labels, types, and options, return a JSON object mapping each field's selector to the best answer. Only respond with valid JSON, no extra text.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.3,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(
-      `HTTP ${res.status}\n` +
-      `URL: ${url}\n` +
-      `Status: ${res.status} ${res.statusText}\n` +
-      `Body: ${text || "(empty)"}`
-    );
-  }
-
-  return res.json();
-}
-
 async function callOllama(prompt) {
-  const errors = [];
-
-  for (const url of ENDPOINTS) {
-    try {
-      const data = await tryEndpoint(url, prompt);
-      const text = data.choices?.[0]?.message?.content || "";
-      const json = text.replace(/```(?:json)?/g, "").trim();
-      return JSON.parse(json);
-    } catch (err) {
-      errors.push(err.message);
-    }
-  }
-
-  throw new Error(
-    "Ollama unreachable on both 127.0.0.1 and localhost.\n\n" +
-    "Tried:\n" +
-    errors.map((e, i) => `  ${ENDPOINTS[i]}\n    → ${e.split("\n")[0]}`).join("\n") + "\n\n" +
-    "Make sure Ollama is running (ollama serve) and qwen2.5:1.5b is pulled (ollama pull qwen2.5:1.5b)."
-  );
+  const res = await chrome.runtime.sendMessage({ action: "callOllama", prompt });
+  if (!res.ok) throw new Error(res.error);
+  return res.data;
 }
 
 async function diagnoseConnection() {
-  const results = [];
-
-  for (const url of ENDPOINTS) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: AI_MODEL, messages: [{ role: "user", content: "hi" }], stream: false }),
-      });
-      const text = await res.text();
-      if (res.ok) {
-        results.push(`✓ ${url} → ${res.status} OK`);
-      } else {
-        results.push(`✗ ${url} → ${res.status} ${res.statusText}: ${text.substring(0, 100)}`);
-      }
-    } catch (err) {
-      results.push(`✗ ${url} → ${err.message}`);
-    }
-  }
-
-  return results;
+  const res = await chrome.runtime.sendMessage({ action: "diagnoseOllama" });
+  return res.results;
 }
 
 async function diagnose() {
