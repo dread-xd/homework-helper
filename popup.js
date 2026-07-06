@@ -70,7 +70,16 @@ fillBtn.addEventListener("click", async () => {
     if (useAi) {
       setStatus("Scraping page...", "loading");
 
-      const fields = await chrome.tabs.sendMessage(tab.id, { action: "scrapeFields" });
+      let fields;
+      try {
+        fields = await chrome.tabs.sendMessage(tab.id, { action: "scrapeFields" });
+      } catch {
+        setStatus("Content script not found. Reload the page (F5) and try again.", "error");
+        fillBtn.disabled = false;
+        fillBtn.textContent = "Auto-Fill This Page";
+        return;
+      }
+
       if (!fields || fields.length === 0) {
         setStatus("No fillable fields found.", "error");
         fillBtn.disabled = false;
@@ -85,7 +94,14 @@ fillBtn.addEventListener("click", async () => {
       const response = await chrome.runtime.sendMessage({ action: "callLLM", prompt });
 
       if (!response.ok) {
-        setStatus(`AI error: ${response.error}`, "error");
+        const msg = response.error || "Unknown error";
+        if (msg.includes("API key")) {
+          setStatus("No API key set. Use Canned mode or configure an API key in Settings.", "error");
+        } else if (msg.includes("fetch")) {
+          setStatus("Can't reach the AI. Is Ollama running? (Settings → check endpoint)", "error");
+        } else {
+          setStatus(`AI error: ${msg}`, "error");
+        }
         fillBtn.disabled = false;
         fillBtn.textContent = "Auto-Fill This Page";
         return;
@@ -103,7 +119,15 @@ fillBtn.addEventListener("click", async () => {
       showStats(fillResult);
       revertBtn.style.display = "block";
     } else {
-      const results = await chrome.tabs.sendMessage(tab.id, { action: "autoFill" });
+      let results;
+      try {
+        results = await chrome.tabs.sendMessage(tab.id, { action: "autoFill" });
+      } catch {
+        setStatus("Content script not found. Reload the page (F5) and try again.", "error");
+        fillBtn.disabled = false;
+        fillBtn.textContent = "Auto-Fill This Page";
+        return;
+      }
       setStatus(`Done! Filled ${(results.fields || 0) + (results.selects || 0)} fields.`, "success");
       showStats(results);
       revertBtn.style.display = "block";

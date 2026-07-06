@@ -20,16 +20,14 @@ async function callLLM(prompt) {
     "apiEndpoint", "apiKey", "apiModel",
   ]);
 
-  if (!apiKey) {
+  const isLocal = apiEndpoint.includes("localhost") || apiEndpoint.includes("127.0.0.1");
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+  if (!apiKey && !isLocal) {
     throw new Error("No API key configured. Set it in the extension popup.");
   }
 
-  const res = await fetch(apiEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
+  const res = await fetch(apiEndpoint, { method: "POST", headers,
     body: JSON.stringify({
       model: apiModel,
       messages: [
