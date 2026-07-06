@@ -1,9 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Homework Helper",
-  "version": "1.0.0",
-  "description": "PoC Chrome extension that auto-completes worksheet-style forms and assignments.",
+  "version": "2.0.0",
+  "description": "PoC Chrome extension that auto-completes worksheet-style forms using AI (or canned answers).",
   "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

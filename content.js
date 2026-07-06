@@ -23,28 +23,41 @@ const LABEL_ANSWERS = {
   title: ["Homework Assignment PoC"],
 };
 
-function getLabelText(input) {
-  const id = input.id;
+function getLabelText(el) {
+  const id = el.id;
   if (id) {
     const label = document.querySelector(`label[for="${id}"]`);
     if (label) return label.textContent.trim().toLowerCase();
   }
-  const parent = input.closest("label");
+  const parent = el.closest("label");
   if (parent) return parent.textContent.trim().toLowerCase();
-  const labels = input.closest("div, fieldset, td, li, p");
-  if (labels) {
-    const text = labels.textContent.trim().toLowerCase();
-    const parts = text.split(input.name || input.type || "").filter(Boolean);
+  const container = el.closest("div, fieldset, td, li, p, section");
+  if (container) {
+    const text = container.textContent.trim().toLowerCase();
+    const parts = text.split(el.name || el.type || "").filter(Boolean);
     return parts[0] || text;
   }
-  return (input.placeholder || input.name || "").toLowerCase();
+  return (el.placeholder || el.name || el.title || "").toLowerCase();
+}
+
+function buildSelector(el) {
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  if (el.name) {
+    const tag = el.tagName.toLowerCase();
+    const type = el.type ? `[type="${el.type}"]` : "";
+    return `${tag}[name="${el.name}"]${type}`;
+  }
+  let sel = el.tagName.toLowerCase();
+  if (el.className && typeof el.className === "string") {
+    sel += `.${el.className.trim().split(/\s+/).map(c => CSS.escape(c)).join(".")}`;
+  }
+  return sel;
 }
 
 function findAnswer(labelText) {
   for (const [key, answers] of Object.entries(LABEL_ANSWERS)) {
     if (labelText.includes(key)) {
-      const idx = Math.floor(Math.random() * answers.length);
-      return answers[idx];
+      return answers[Math.floor(Math.random() * answers.length)];
     }
   }
   return null;
@@ -56,146 +69,146 @@ function getMultiChoiceAnswer(labelText) {
   return null;
 }
 
-function fillInput(input) {
+function fillInput(input, forcedValue) {
   if (input.disabled || input.readOnly) return null;
 
-  const labelText = getLabelText(input);
-  const answer = findAnswer(labelText);
+  let val;
 
-  if (input.type === "text" || input.type === "url" || input.type === "tel") {
-    if (answer) {
-      input.value = answer;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      return answer;
+  if (forcedValue !== undefined) {
+    val = forcedValue;
+  } else {
+    const labelText = getLabelText(input);
+
+    if (input.type === "text" || input.type === "url" || input.type === "tel") {
+      val = findAnswer(labelText);
+    } else if (input.type === "email") {
+      val = LABEL_ANSWERS.email[0];
+    } else if (input.type === "number") {
+      val = "42";
+    } else if (input.type === "checkbox") {
+      const answer = getMultiChoiceAnswer(labelText);
+      if (answer === "Yes") { input.checked = true; input.dispatchEvent(new Event("change", { bubbles: true })); return "checked"; }
+      if (forcedValue === true) { input.checked = true; input.dispatchEvent(new Event("change", { bubbles: true })); return "checked"; }
+      if (forcedValue === false) { input.checked = false; input.dispatchEvent(new Event("change", { bubbles: true })); return "unchecked"; }
+      return null;
+    } else if (input.type === "radio") {
+      const group = document.getElementsByName(input.name);
+      const answer = getMultiChoiceAnswer(labelText);
+      if (answer === "Yes" || forcedValue === true) { input.checked = true; input.dispatchEvent(new Event("change", { bubbles: true })); return "selected"; }
+      if (answer === "No" && group.length > 0) { const last = group[group.length - 1]; if (last !== input) { last.checked = true; last.dispatchEvent(new Event("change", { bubbles: true })); return "selected (fallback)"; } }
+      return null;
+    } else if (input.type === "date") {
+      val = "2026-07-06";
+    } else if (input.tagName === "TEXTAREA") {
+      val = findAnswer(labelText) || "Sample text for worksheet completion.";
+    } else {
+      val = null;
     }
   }
 
-  if (input.type === "email") {
-    const email = LABEL_ANSWERS.email[0];
-    input.value = email;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    return email;
-  }
-
-  if (input.type === "number") {
-    const val = "42";
+  if (val !== null && val !== undefined) {
     input.value = val;
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
-    return val;
-  }
-
-  if (input.type === "checkbox") {
-    const shouldCheck = getMultiChoiceAnswer(labelText);
-    if (shouldCheck === "Yes") {
-      input.checked = true;
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      return "checked";
-    }
-    return null;
-  }
-
-  if (input.type === "radio") {
-    const group = document.getElementsByName(input.name);
-    const shouldCheck = getMultiChoiceAnswer(labelText);
-    if (shouldCheck === "Yes") {
-      input.checked = true;
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      return "selected";
-    }
-    if (shouldCheck === "No" && group.length > 0) {
-      const firstRadio = group[group.length - 1];
-      if (firstRadio !== input) {
-        firstRadio.checked = true;
-        firstRadio.dispatchEvent(new Event("change", { bubbles: true }));
-        return "selected (fallback)";
-      }
-    }
-    return null;
-  }
-
-  if (input.type === "date") {
-    const val = "2026-07-06";
-    input.value = val;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    return val;
-  }
-
-  if (input.type === "textarea" || input.tagName === "TEXTAREA") {
-    const val = answer || "Sample text for worksheet completion.";
-    input.value = val;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    return val;
+    return String(val);
   }
 
   return null;
 }
 
-function fillSelect(select) {
+function fillSelect(select, forcedValue) {
   if (select.disabled) return null;
   const options = Array.from(select.options).filter((o) => o.value && !o.disabled);
   if (options.length === 0) return null;
 
-  const labelText = getLabelText(select);
+  let targetValue = forcedValue;
 
-  for (const opt of options) {
-    const optText = opt.textContent.trim().toLowerCase();
-    if (labelText.includes("state") && optText.length === 2) {
-      select.value = opt.value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      return opt.textContent.trim();
-    }
-    if (labelText.includes("country") && (optText === "united states" || optText === "usa")) {
-      select.value = opt.value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      return opt.textContent.trim();
+  if (targetValue === undefined) {
+    const labelText = getLabelText(select);
+    for (const opt of options) {
+      const optText = opt.textContent.trim().toLowerCase();
+      if (labelText.includes("state") && optText.length === 2) { targetValue = opt.value; break; }
+      if (labelText.includes("country") && (optText === "united states" || optText === "usa")) { targetValue = opt.value; break; }
     }
   }
 
-  const idx = Math.floor(Math.random() * options.length);
-  select.value = options[idx].value;
+  if (targetValue === undefined) {
+    const opt = options[Math.floor(Math.random() * options.length)];
+    targetValue = opt.value;
+  }
+
+  const match = options.find((o) => o.value === targetValue || o.textContent.trim() === targetValue);
+  const finalValue = match ? match.value : options[0].value;
+
+  select.value = finalValue;
   select.dispatchEvent(new Event("change", { bubbles: true }));
-  return options[idx].textContent.trim();
+  return finalValue;
+}
+
+function getFillableElements() {
+  const inputs = document.querySelectorAll(
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]):not([type="password"]):not([type="image"])'
+  );
+  const selects = document.querySelectorAll("select");
+  return { inputs, selects };
 }
 
 function autoFill() {
   const results = { fields: 0, selects: 0, skipped: 0 };
-
-  const inputs = document.querySelectorAll(
-    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="file"]):not([type="password"]):not([type="image"])'
-  );
+  const { inputs, selects } = getFillableElements();
 
   for (const input of inputs) {
     const val = fillInput(input);
-    if (val !== null) {
-      results.fields++;
-    } else {
-      results.skipped++;
-    }
+    if (val !== null) results.fields++;
+    else results.skipped++;
   }
 
-  const selects = document.querySelectorAll("select");
   for (const select of selects) {
     const val = fillSelect(select);
-    if (val !== null) {
-      results.selects++;
-    } else {
-      results.skipped++;
-    }
+    if (val !== null) results.selects++;
+    else results.skipped++;
   }
 
   chrome.storage.local.set({ lastResult: results });
   return results;
 }
 
+function scrapeFields() {
+  const fields = [];
+  const { inputs, selects } = getFillableElements();
+
+  for (const el of inputs) {
+    if (el.disabled || el.readOnly) continue;
+    const options = el.type === "checkbox" || el.type === "radio"
+      ? Array.from(document.getElementsByName(el.name)).map((r) => ({ value: r.value, label: getLabelText(r) }))
+      : undefined;
+    fields.push({
+      selector: buildSelector(el),
+      label: getLabelText(el),
+      type: el.tagName === "TEXTAREA" ? "textarea" : el.type || "text",
+      currentValue: el.value,
+      options,
+    });
+  }
+
+  for (const el of selects) {
+    if (el.disabled) continue;
+    fields.push({
+      selector: buildSelector(el),
+      label: getLabelText(el),
+      type: "select",
+      currentValue: el.value,
+      options: Array.from(el.options).filter((o) => o.value).map((o) => ({ value: o.value, label: o.textContent.trim() })),
+    });
+  }
+
+  return fields;
+}
+
 function saveSnapshot() {
   const snapshot = [];
-  const inputs = document.querySelectorAll("input, select, textarea");
-  for (const el of inputs) {
+  const { inputs, selects } = getFillableElements();
+  for (const el of [...inputs, ...selects]) {
     if (el.tagName === "SELECT") {
       snapshot.push({ tag: "SELECT", id: el.id, name: el.name, value: el.value, selectedIndex: el.selectedIndex });
     } else if (el.tagName === "TEXTAREA") {
@@ -213,15 +226,21 @@ function restoreSnapshot(snapshot) {
   for (const entry of snapshot) {
     let el = null;
     if (entry.id) el = document.getElementById(entry.id);
-    if (!el && entry.name) el = document.querySelector(`[name="${entry.name}"]`);
+    if (!el && entry.name) {
+      if (entry.type === "radio" || entry.type === "checkbox") {
+        const els = document.getElementsByName(entry.name);
+        for (const e of els) {
+          if (e.type === entry.type) { el = e; break; }
+        }
+      } else {
+        el = document.querySelector(`[name="${CSS.escape(entry.name)}"]`);
+      }
+    }
     if (!el) continue;
 
     if (entry.tag === "SELECT") {
-      if (entry.selectedIndex >= 0 && entry.selectedIndex < el.options.length) {
-        el.selectedIndex = entry.selectedIndex;
-      } else {
-        el.value = entry.value;
-      }
+      if (entry.selectedIndex >= 0 && entry.selectedIndex < el.options.length) el.selectedIndex = entry.selectedIndex;
+      else el.value = entry.value;
       el.dispatchEvent(new Event("change", { bubbles: true }));
     } else if (entry.type === "checkbox" || entry.type === "radio") {
       el.checked = entry.checked;
@@ -241,6 +260,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.set({ lastSnapshot: snapshot, lastResult: results });
     sendResponse(results);
   }
+
+  if (request.action === "scrapeFields") {
+    const fields = scrapeFields();
+    sendResponse(fields);
+  }
+
+  if (request.action === "applyAiAnswers") {
+    const snapshot = saveSnapshot();
+    const results = { fields: 0, selects: 0, skipped: 0 };
+    const { inputs, selects } = getFillableElements();
+
+    for (const el of [...inputs, ...selects]) {
+      const sel = buildSelector(el);
+      const answer = request.answers[sel];
+      if (answer === undefined || answer === null) { results.skipped++; continue; }
+
+      if (el.tagName === "SELECT") {
+        const val = fillSelect(el, String(answer));
+        if (val !== null) results.selects++;
+        else results.skipped++;
+      } else {
+        const val = fillInput(el, answer);
+        if (val !== null) results.fields++;
+        else results.skipped++;
+      }
+    }
+
+    chrome.storage.local.set({ lastSnapshot: snapshot, lastResult: results });
+    sendResponse(results);
+  }
+
   if (request.action === "revertFill") {
     chrome.storage.local.get("lastSnapshot", (data) => {
       if (data.lastSnapshot) {

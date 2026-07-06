@@ -7,25 +7,48 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      width: 320px;
+      width: 340px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       background: #f8fafc;
       color: #1e293b;
+      font-size: 13px;
     }
     .header {
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      padding: 16px 20px;
+      padding: 14px 18px;
       color: white;
     }
-    .header h1 { font-size: 18px; font-weight: 700; }
-    .header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-    .content { padding: 16px 20px; }
+    .header h1 { font-size: 17px; font-weight: 700; }
+    .header p { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+    .content { padding: 14px 18px; }
+    .mode-switch {
+      display: flex;
+      background: #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .mode-switch button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #64748b;
+    }
+    .mode-switch button.active {
+      background: #6366f1;
+      color: white;
+    }
     .btn {
       width: 100%;
-      padding: 12px;
+      padding: 10px;
       border: none;
       border-radius: 8px;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
@@ -43,40 +66,94 @@
     }
     .btn-secondary:hover { background: #cbd5e1; }
     .status {
-      margin-top: 12px;
-      padding: 12px;
+      margin-top: 10px;
+      padding: 10px;
       border-radius: 8px;
-      font-size: 13px;
+      font-size: 12px;
       display: none;
     }
     .status.success { display: block; background: #dcfce7; color: #166534; }
     .status.error { display: block; background: #fee2e2; color: #991b1b; }
     .status.info { display: block; background: #dbeafe; color: #1e40af; }
-    .stats { margin-top: 12px; display: none; }
+    .status.loading { display: block; background: #fef9c3; color: #854d0e; }
+    .stats { margin-top: 10px; display: none; }
     .stats.visible { display: block; }
-    .stat-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
+    .stat-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; border-bottom: 1px solid #e2e8f0; }
     .stat-label { color: #64748b; }
     .stat-value { font-weight: 600; }
-    .footer { padding: 12px 20px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+    .settings-toggle {
+      background: none;
+      border: none;
+      color: #6366f1;
+      font-size: 11px;
+      cursor: pointer;
+      margin-top: 8px;
+      padding: 4px;
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+    .settings-toggle:hover { text-decoration: underline; }
+    .settings-panel {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    .settings-panel.open { display: block; }
+    .field-group { margin-bottom: 8px; }
+    .field-group label { display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 3px; }
+    .field-group input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      background: white;
+    }
+    .field-group input:focus { outline: 2px solid #6366f1; border-color: transparent; }
+    .footer { padding: 10px 18px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Homework Helper</h1>
-    <p>PoC — Auto-complete worksheets &amp; forms</p>
+    <p>PoC — Auto-complete worksheets with AI or canned answers</p>
   </div>
   <div class="content">
+    <div class="mode-switch">
+      <button id="modeDumb" class="active">Canned</button>
+      <button id="modeSmart">Smart (AI)</button>
+    </div>
+
     <button class="btn btn-primary" id="fillBtn">Auto-Fill This Page</button>
     <button class="btn btn-secondary" id="revertBtn" style="display:none">Revert Fill</button>
     <div class="status" id="status"></div>
     <div class="stats" id="stats">
-      <div class="stat-row"><span class="stat-label">Text fields filled</span><span class="stat-value" id="statFields">0</span></div>
+      <div class="stat-row"><span class="stat-label">Fields filled</span><span class="stat-value" id="statFields">0</span></div>
       <div class="stat-row"><span class="stat-label">Dropdowns filled</span><span class="stat-value" id="statSelects">0</span></div>
       <div class="stat-row"><span class="stat-label">Skipped</span><span class="stat-value" id="statSkipped">0</span></div>
     </div>
+
+    <button class="settings-toggle" id="settingsToggle">⚙ Settings</button>
+    <div class="settings-panel" id="settingsPanel">
+      <div class="field-group">
+        <label for="apiKey">API Key</label>
+        <input type="password" id="apiKey" placeholder="sk-..." />
+      </div>
+      <div class="field-group">
+        <label for="apiEndpoint">API Endpoint</label>
+        <input type="text" id="apiEndpoint" value="https://api.openai.com/v1/chat/completions" />
+      </div>
+      <div class="field-group">
+        <label for="apiModel">Model</label>
+        <input type="text" id="apiModel" value="gpt-4o-mini" />
+      </div>
+    </div>
   </div>
   <div class="footer">
-    <span>⚠ For educational/PoC use only. v1.0.0</span>
+    <span>⚠ For educational/PoC use only. v2.0.0</span>
   </div>
   <script src="popup.js"></script>
 </body>

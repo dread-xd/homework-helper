@@ -2,13 +2,17 @@
 
 > **⚠ Proof of Concept — For educational purposes only.**
 
-A Chrome extension that auto-completes worksheet-style forms and assignments on any webpage. Detects text inputs, dropdowns, checkboxes, radio buttons, and textareas, then fills them with plausible answers based on label analysis.
+A Chrome extension that auto-completes worksheet-style forms and assignments on any webpage. Supports two modes:
+
+- **Canned mode** — Fills fields with plausible-looking placeholder data based on label keyword matching (no external dependencies).
+- **Smart mode (AI)** — Scrapes all form fields, sends them to an LLM (OpenAI-compatible API), and fills in real answers based on the questions.
 
 ## Features
 
-- **Auto-fill** — Fills text fields, selects, checkboxes, radios, and textareas with one click.
-- **Smart detection** — Reads labels, placeholders, and names to determine appropriate values.
-- **Revert** — Restores the original state of all fields.
+- **Two fill modes** — Switch between canned placeholders and AI-generated answers.
+- **Smart field detection** — Reads labels, placeholders, and names to understand each field's context.
+- **Supports all input types** — Text, email, tel, number, date, textarea, select, checkbox, radio.
+- **Revert** — Takes a snapshot before filling and restores the original state.
 - **Stats** — Shows how many fields were filled/skipped.
 
 ## Installation
@@ -23,26 +27,47 @@ A Chrome extension that auto-completes worksheet-style forms and assignments on 
 
 1. Navigate to any page with a form or worksheet
 2. Click the **Homework Helper** icon
-3. Click **Auto-Fill This Page**
-4. Review and adjust any fields as needed
+3. **Canned mode** (default) — Click "Auto-Fill This Page" for placeholder data
+4. **Smart mode** — Toggle to "Smart (AI)", configure your API key in settings, then click "Auto-Fill This Page"
 5. Click **Revert Fill** to undo
+
+### AI Setup
+
+Supports any OpenAI-compatible API:
+
+| Provider | Endpoint | Model |
+|---|---|---|
+| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` (default) |
+| Anthropic (via proxy) | `https://api.anthropic.com/v1/...` | `claude-3-haiku` |
+| Ollama (local) | `http://localhost:11434/v1/chat/completions` | `llama3` |
+| LM Studio (local) | `http://localhost:1234/v1/chat/completions` | any loaded model |
+
+1. Click **Settings** in the popup
+2. Enter your API key, endpoint, and model
+3. Toggle to **Smart (AI)** mode and click **Auto-Fill This Page**
 
 ## How it works
 
-The content script (`content.js`) scans the DOM for all form elements. For each element, it:
+### Canned Mode
+The content script (`content.js`) scans the DOM for form elements, reads their labels, and matches them against a keyword dictionary to pick random placeholder values.
 
-1. Determines the associated label text (via `for` attribute, parent `<label>`, or closest container)
-2. Matches the label against a dictionary of common worksheet keywords (`name`, `email`, `date`, `state`, etc.)
-3. Picks a random plausible value and assigns it, triggering input/change events
+### Smart Mode (AI)
+1. The content script scrapes all fillable fields with their labels, types, and available options
+2. Sends the field descriptions to the background service worker (`background.js`)
+3. The background worker calls the configured LLM API with a prompt asking for correct answers
+4. The AI returns a JSON map of selector → answer
+5. The content script applies those answers to the matching fields
 
 ## Project Structure
 
 ```
 homework-helper/
 ├── manifest.json        # Chrome extension manifest (MV3)
-├── content.js           # Content script — does the auto-fill
-├── popup.html           # Popup UI
-├── popup.js             # Popup logic
+├── background.js        # Service worker — handles AI API calls
+├── content.js           # Content script — scrapes fields, fills forms
+├── popup.html           # Popup UI with mode toggle & settings
+├── popup.js             # Popup logic & settings management
+├── test.html            # Local test page for trying the extension
 ├── icons/               # Extension icons (16, 48, 128px)
 └── README.md
 ```
