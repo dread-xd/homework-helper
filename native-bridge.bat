@@ -1,2 +1,2 @@
 @echo off
-node "%~dp0native-bridge.js"
+"C:\Users\PC\AppData\Local\node-v24\node.exe" "%~dp0native-bridge.js"

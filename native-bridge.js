@@ -4,37 +4,50 @@ const OLLAMA_URL = "http://127.0.0.1:11434/v1/chat/completions";
 const MODEL = "qwen2.5:1.5b";
 
 function sendMessage(msg) {
-  const json = JSON.stringify(msg);
-  const len = Buffer.byteLength(json);
-  const header = Buffer.alloc(4);
-  header.writeUInt32LE(len, 0);
-  process.stdout.write(header);
-  process.stdout.write(json);
+  try {
+    const json = JSON.stringify(msg);
+    const len = Buffer.byteLength(json);
+    const header = Buffer.alloc(4);
+    header.writeUInt32LE(len, 0);
+    process.stdout.write(header);
+    process.stdout.write(json);
+  } catch (e) {
+    process.exit(1);
+  }
 }
 
-function readMessage() {
-  return new Promise((resolve, reject) => {
-    const header = process.stdin.read(4);
-    if (!header) {
-      process.stdin.once("readable", () => resolve(readMessage()));
-      return;
-    }
-    const len = header.readUInt32LE(0);
-    const data = process.stdin.read(len);
-    if (!data) {
-      process.stdin.once("readable", () => resolve(readMessage()));
-      return;
-    }
-    resolve(JSON.parse(data.toString()));
-  });
+let buffer = Buffer.alloc(0);
+
+function processData() {
+  while (buffer.length >= 4) {
+    const len = buffer.readUInt32LE(0);
+    if (buffer.length < 4 + len) break;
+    const json = buffer.subarray(4, 4 + len).toString();
+    buffer = buffer.subarray(4 + len);
+    handleMessage(JSON.parse(json));
+  }
 }
 
-async function callOllama(prompt) {
-  return new Promise((resolve, reject) => {
+function handleMessage(msg) {
+  if (msg.action === "ping") {
+    sendMessage({ ok: true, pong: true });
+    return;
+  }
+
+  if (msg.action === "callOllama") {
+    callOllama(msg.prompt).then(sendMessage);
+    return;
+  }
+
+  sendMessage({ ok: false, error: "Unknown action: " + msg.action });
+}
+
+function callOllama(prompt) {
+  return new Promise((resolve) => {
     const body = JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: "You are a homework assistant. Given a list of form fields with their labels, types, and options, return a JSON object mapping each field's selector to the best answer. Only respond with valid JSON, no extra text." },
+        { role: "system", content: "You are a homework assistant. Given a list of form fields, return a JSON object mapping each field selector to the best answer. Only respond with valid JSON." },
         { role: "user", content: prompt },
       ],
       temperature: 0.3,
@@ -56,7 +69,7 @@ async function callOllama(prompt) {
             resolve({ ok: false, error: "Parse error: " + e.message });
           }
         } else {
-          resolve({ ok: false, error: `HTTP ${res.statusCode}: ${data.substring(0, 200)}` });
+          resolve({ ok: false, error: "HTTP " + res.statusCode + ": " + data.substring(0, 200) });
         }
       });
     });
@@ -66,20 +79,9 @@ async function callOllama(prompt) {
   });
 }
 
-async function main() {
-  while (true) {
-    try {
-      const msg = await readMessage();
-      if (msg.action === "callOllama") {
-        const result = await callOllama(msg.prompt);
-        sendMessage(result);
-      } else if (msg.action === "ping") {
-        sendMessage({ ok: true, pong: true });
-      }
-    } catch (e) {
-      sendMessage({ ok: false, error: e.message });
-    }
-  }
-}
+process.stdin.on("data", (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+  processData();
+});
 
-main();
+process.stdin.on("end", () => process.exit(0));
