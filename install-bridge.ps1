@@ -1,15 +1,16 @@
 $manifestPath = Join-Path $PSScriptRoot "com.homework.ollama.json"
-$regPath = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.homework.ollama"
-$braveRegPath = "HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.homework.ollama"
+$chromePath = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.homework.ollama"
+$bravePath = "HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.homework.ollama"
 
-New-Item -Path $regPath -Force | Out-Null
-Set-ItemProperty -Path $regPath -Name "(Default)" -Value $manifestPath
-Write-Host "✓ Chrome native messaging host registered"
+foreach ($path in @($chromePath, $bravePath)) {
+  $null = New-Item -Path $path -Force
+  $null = New-ItemProperty -LiteralPath $path -Name "(Default)" -Value $manifestPath -Force
+}
 
-New-Item -Path $braveRegPath -Force | Out-Null
-Set-ItemProperty -Path $braveRegPath -Name "(Default)" -Value $manifestPath
-Write-Host "✓ Brave native messaging host registered"
-
+Write-Host "✓ Chrome and Brave native messaging host registered"
 Write-Host ""
-Write-Host "Done! Reload the extension in brave://extensions and try Smart mode."
-Write-Host "Make sure Ollama is running (ollama serve) before clicking Auto-Fill."
+Write-Host "Next steps:"
+Write-Host "1. Reload the extension in brave://extensions (click ↻)"
+Write-Host "2. Make sure Ollama is running: ollama serve"
+Write-Host "3. Open quiz-test.html in Brave"
+Write-Host "4. Toggle to Smart (AI) mode and click Auto-Fill"
